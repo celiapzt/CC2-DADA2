@@ -40,6 +40,7 @@ fnRs <- sort(list.files(path, pattern="_R2.fastq", full.names = TRUE))
 ```{r}
 plotQualityProfile(fnFs[1:2])
 ```
+
 ```{r}
 plotQualityProfile(fnRs[1:2])
 ```
@@ -76,6 +77,7 @@ errR <- learnErrors(filtRs, multithread=TRUE)
 ```{r}
 plotErrors(errF, nominalQ=TRUE)
 ```
+
 ```{r}
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 ```
@@ -110,6 +112,7 @@ dim(seqtab.nochim)
 ```{r}
 sum(seqtab.nochim)/sum(seqtab)
 ```
+
 ```{r}
 getN <- function(x) sum(getUniques(x))
 track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
@@ -125,12 +128,68 @@ wget zenodo.org/record/4587955/files/silva_nr99_v138.1_train_set.fa.gz
 ```
 
 ```{r}
-taxa <- assignTaxonomy(seqtab.nochim, "/home/rstudio/cc2/silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
+taxa <- assignTaxonomy(seqtab.nochim, "/home/rstudio/cc2_2022/silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
 ```
+
 ```{r}
 taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print)
 ```
 
+```{r}
+# Go phyloseq
+samples.out <- rownames(seqtab.nochim)
+prof <- sapply(strsplit(samples.out, "_"), `[`, 2)
+s_prof <- substr(prof,1,1)
+day <- as.character(sapply(strsplit(samples.out, "_"), `[`, 3))
+samdf <- data.frame(prof=s_prof, Day=day)
+#Divise en mois
+samdf$Mois <- "Septembre"
+samdf$Mois[samdf$Day > "10sept14"] <- "Mars"
+rownames(samdf) <- samples.out
+```
 
+```{r}
+library(phyloseq)
+```
+
+```{r}
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               sample_data(samdf), 
+               tax_table(taxa))
+# objet phyloseq, ps@otu_table: table avec les séquences et combien de fois dans l'échantillon, sampledate: table avec échantillons, age, ID.. Tree (arbre phylo avec tous les ARN16S), Tax table: plyla classe genre..
+test<-data.frame(ps@otu_table)
+test2<-ps@sam_data
+test3<-data.frame(ps@tax_table)
+```
+
+```{r}
+dna <- Biostrings::DNAStringSet(taxa_names(ps))
+names(dna) <- taxa_names(ps)
+ps <- merge_phyloseq(ps, dna)
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+ps
+```
+
+```{r}
+plot_richness(ps, x="Mois", measures=c("Shannon", "Simpson"), color="prof")
+```
+
+```{r}
+ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
+ord.nmds.bray <- ordinate(ps, method="NMDS", distance="bray")
+# Stress très proche de 0 car peu d'échantillons
+```
+
+```{r}
+plot_ordination(ps.prop, ord.nmds.bray, shape="prof", color="Mois", title="Bray NMDS")
+```
+
+```{r}
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="Mois", fill="Class") + facet_wrap(~ prof, scales="free_x")
+```
+f 

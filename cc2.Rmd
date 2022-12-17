@@ -85,6 +85,7 @@ dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 ```{r}
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 ```
+
 ```{r}
 dadaFs[[1]]
 ```
@@ -192,4 +193,4 @@ ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.top20 <- prune_taxa(top20, ps.top20)
 plot_bar(ps.top20, x="Mois", fill="Class") + facet_wrap(~ prof, scales="free_x")
 ```
-f 
+
